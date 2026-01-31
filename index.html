@@ -1,0 +1,750 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=1200, initial-scale=1" />
+    <title>X Joiner - 图片拼接</title>
+    <style>
+      :root {
+        --bg: #f6f6f6;
+        --bg-strong: #ffffff;
+        --fg: #0d0d0d;
+        --muted: #6c6c6c;
+        --line: #0d0d0d;
+        --line-soft: #d9d9d9;
+        --shadow: 0 18px 40px rgba(0, 0, 0, 0.08);
+        --radius: 16px;
+        --radius-sm: 8px;
+        --gap: 24px;
+        --accent: #000;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        color: var(--fg);
+        font-family: "PingFang SC", "PingFang TC", "Microsoft YaHei", sans-serif;
+        background-image: radial-gradient(
+            rgba(0, 0, 0, 0.05) 0.6px,
+            transparent 0.6px
+          ),
+          linear-gradient(135deg, #f9f9f9 0%, #ededed 100%);
+        background-size: 14px 14px, cover;
+        min-height: 100vh;
+      }
+
+      .page {
+        width: 100%;
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 40px;
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+      }
+
+      header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 10px;
+      }
+
+      .title {
+        font-size: 32px;
+        font-weight: 300;
+        letter-spacing: 0.05em;
+      }
+      
+      .title strong {
+        font-weight: 700;
+      }
+
+      .workspace {
+        display: grid;
+        grid-template-columns: 300px 1fr;
+        gap: 24px;
+        align-items: start;
+      }
+
+      /* Cards */
+      .card {
+        background: var(--bg-strong);
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        padding: 20px;
+        box-shadow: var(--shadow);
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+
+      .card-title {
+        font-size: 14px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        margin: 0;
+        color: var(--muted);
+      }
+
+      /* Upload Area */
+      .upload-area {
+        border: 1px dashed var(--line);
+        border-radius: var(--radius-sm);
+        padding: 30px 20px;
+        text-align: center;
+        background: #fafafa;
+        cursor: pointer;
+        transition: all 0.2s;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .upload-area:hover, .upload-area.dragging {
+        background: #eee;
+        border-color: var(--fg);
+      }
+
+      .upload-icon {
+        width: 32px;
+        height: 32px;
+        color: var(--muted);
+      }
+
+      .upload-hint {
+        font-size: 13px;
+        color: var(--muted);
+      }
+
+      input[type="file"] {
+        display: none;
+      }
+
+      /* Control Groups */
+      .control-group {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      
+      .control-label {
+        font-size: 12px;
+        font-weight: 600;
+      }
+
+      .radio-group {
+        display: flex;
+        background: #f0f0f0;
+        border-radius: 8px;
+        padding: 4px;
+        gap: 4px;
+      }
+
+      .radio-label {
+        flex: 1;
+        text-align: center;
+        font-size: 13px;
+        padding: 8px 0;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: background 0.2s;
+        color: var(--muted);
+      }
+
+      .radio-label:hover {
+        background: rgba(255,255,255,0.5);
+      }
+
+      input[type="radio"] {
+        display: none;
+      }
+
+      input[type="radio"]:checked + .radio-label {
+        background: #fff;
+        color: var(--fg);
+        font-weight: 600;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+      }
+
+      .range-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 13px;
+      }
+      
+      input[type="range"] {
+        flex: 1;
+        accent-color: var(--fg);
+      }
+
+      input[type="color"] {
+        border: none;
+        width: 30px;
+        height: 30px;
+        background: none;
+        cursor: pointer;
+      }
+
+      .btn {
+        width: 100%;
+        padding: 12px;
+        background: var(--fg);
+        color: #fff;
+        border: none;
+        border-radius: var(--radius-sm);
+        font-size: 14px;
+        font-weight: 600;
+        letter-spacing: 0.05em;
+        cursor: pointer;
+        transition: opacity 0.2s;
+      }
+
+      .btn:hover {
+        opacity: 0.9;
+      }
+
+      .btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+
+      .btn.secondary {
+        background: #fff;
+        color: var(--fg);
+        border: 1px solid var(--line);
+      }
+
+      /* Image List (Sortable) */
+      .list-container {
+        min-height: 100px;
+        max-height: 60vh;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      
+      .list-item {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        background: #fff;
+        border: 1px solid var(--line-soft);
+        padding: 8px;
+        border-radius: 8px;
+        cursor: grab;
+        transition: transform 0.2s, box-shadow 0.2s;
+      }
+
+      .list-item:active {
+        cursor: grabbing;
+      }
+
+      .list-item.dragging {
+        opacity: 0.5;
+        border: 1px dashed var(--fg);
+      }
+
+      .thumb {
+        width: 60px;
+        height: 60px;
+        object-fit: cover;
+        border-radius: 4px;
+        background: #eee;
+        pointer-events: none;
+      }
+
+      .item-info {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        overflow: hidden;
+      }
+
+      .file-name {
+        font-size: 13px;
+        font-weight: 500;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .file-meta {
+        font-size: 11px;
+        color: var(--muted);
+      }
+
+      .remove-btn {
+        width: 24px;
+        height: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: none;
+        background: transparent;
+        color: var(--muted);
+        cursor: pointer;
+        border-radius: 4px;
+      }
+
+      .remove-btn:hover {
+        background: #f0f0f0;
+        color: #d00;
+      }
+
+      /* Preview Panel */
+      .preview-panel {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+
+      .canvas-wrap {
+        background: #ddd; /* checkerboard placeholder */
+        background-image: repeating-linear-gradient(45deg, #d0d0d0 25%, transparent 25%, transparent 75%, #d0d0d0 75%, #d0d0d0), repeating-linear-gradient(45deg, #d0d0d0 25%, #e0e0e0 25%, #e0e0e0 75%, #d0d0d0 75%, #d0d0d0);
+        background-position: 0 0, 10px 10px;
+        background-size: 20px 20px;
+        border-radius: var(--radius);
+        border: 1px solid var(--line);
+        overflow: auto;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 400px;
+        max-height: 80vh;
+        padding: 20px;
+      }
+
+      #preview-img {
+        max-width: 100%;
+        height: auto;
+        box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+        display: none;
+      }
+      
+      .empty-state {
+        text-align: center;
+        color: var(--muted);
+      }
+
+      .result-actions {
+        display: flex;
+        gap: 10px;
+        justify-content: flex-end;
+      }
+
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <header>
+        <div class="title">𝕏 <strong>Joiner</strong></div>
+      </header>
+
+      <main class="workspace">
+        <aside class="left-col" style="display:grid; gap:20px;">
+          
+          <div class="card">
+            <h2 class="card-title">添加图片</h2>
+            <div class="upload-area" id="drop-zone">
+              <svg class="upload-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+              <div class="upload-hint">点击选择 / 拖拽 / 粘贴<br>支持多图</div>
+              <input type="file" id="file-input" multiple accept="image/*">
+            </div>
+            <button class="btn secondary" id="paste-btn">从剪贴板粘贴</button>
+          </div>
+
+          <div class="card" style="flex:1; min-height: 0;">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <h2 class="card-title">排序 (拖拽)</h2>
+              <button id="clear-all" style="border:none; background:none; color:var(--muted); font-size:12px; cursor:pointer;">清空</button>
+            </div>
+            <div class="list-container" id="image-list">
+              </div>
+          </div>
+
+          <div class="card">
+            <h2 class="card-title">设置</h2>
+            
+            <div class="control-group">
+              <div class="control-label">拼接方向</div>
+              <div class="radio-group">
+                <label>
+                  <input type="radio" name="direction" value="vertical" checked>
+                  <div class="radio-label">↓ 垂直</div>
+                </label>
+                <label>
+                  <input type="radio" name="direction" value="horizontal">
+                  <div class="radio-label">→ 水平</div>
+                </label>
+              </div>
+            </div>
+
+            <div class="control-group">
+              <div class="control-label">间距 (px) <span id="gap-val" style="font-weight:400; color:var(--muted); margin-left:4px;">0</span></div>
+              <div class="range-row">
+                <input type="range" id="gap-input" min="0" max="100" value="0">
+              </div>
+            </div>
+
+            <div class="control-group">
+              <div class="control-label">背景颜色</div>
+              <div class="range-row" style="background:#f0f0f0; border-radius:8px; padding:4px 10px;">
+                <span style="flex:1; font-size:12px; color:var(--muted);">选择颜色</span>
+                <input type="color" id="bg-color" value="#ffffff">
+              </div>
+            </div>
+
+            <button class="btn" id="generate-btn">生成拼图</button>
+          </div>
+        </aside>
+
+        <section class="preview-panel">
+          <div class="card canvas-wrap">
+            <div class="empty-state" id="empty-msg">
+              <p>请先在左侧添加图片</p>
+            </div>
+            <img id="preview-img" alt="Result">
+          </div>
+          
+          <div class="result-actions">
+             <button class="btn secondary" id="copy-btn" disabled style="width:auto; padding:12px 24px;">复制结果</button>
+             <button class="btn" id="download-btn" disabled style="width:auto; padding:12px 24px;">下载图片</button>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script>
+      // State
+      const state = {
+        images: [], // { id, file, src, imgObj, width, height }
+        direction: 'vertical',
+        gap: 0,
+        bgColor: '#ffffff'
+      };
+
+      // Elements
+      const fileInput = document.getElementById('file-input');
+      const dropZone = document.getElementById('drop-zone');
+      const pasteBtn = document.getElementById('paste-btn');
+      const imageList = document.getElementById('image-list');
+      const clearBtn = document.getElementById('clear-all');
+      const generateBtn = document.getElementById('generate-btn');
+      const previewImg = document.getElementById('preview-img');
+      const emptyMsg = document.getElementById('empty-msg');
+      const downloadBtn = document.getElementById('download-btn');
+      const copyBtn = document.getElementById('copy-btn');
+      const gapInput = document.getElementById('gap-input');
+      const gapVal = document.getElementById('gap-val');
+      const bgInput = document.getElementById('bg-color');
+      const dirInputs = document.querySelectorAll('input[name="direction"]');
+
+      // --- Utilities ---
+
+      const uniqueId = () => Math.random().toString(36).substr(2, 9);
+
+      const loadImage = (file) => {
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            const img = new Image();
+            img.onload = () => {
+              resolve({
+                id: uniqueId(),
+                file: file,
+                src: e.target.result,
+                imgObj: img,
+                width: img.naturalWidth,
+                height: img.naturalHeight
+              });
+            };
+            img.onerror = reject;
+            img.src = e.target.result;
+          };
+          reader.readAsDataURL(file);
+        });
+      };
+
+      // --- Logic ---
+
+      async function handleFiles(files) {
+        if (!files || files.length === 0) return;
+        
+        // Disable btn during load
+        generateBtn.disabled = true;
+        generateBtn.textContent = "处理中...";
+
+        const promises = Array.from(files).map(f => loadImage(f));
+        try {
+          const newImages = await Promise.all(promises);
+          state.images = [...state.images, ...newImages];
+          renderList();
+          // Auto generate if it's the first batch
+          if (state.images.length === newImages.length) {
+             generateImage();
+          }
+        } catch (err) {
+          console.error("Image load error", err);
+          alert("部分图片加载失败，请重试");
+        } finally {
+          generateBtn.disabled = false;
+          generateBtn.textContent = "生成拼图";
+        }
+      }
+
+      function renderList() {
+        imageList.innerHTML = '';
+        state.images.forEach((item, index) => {
+          const el = document.createElement('div');
+          el.className = 'list-item';
+          el.draggable = true;
+          el.dataset.id = item.id;
+          el.innerHTML = `
+            <span style="color:#ccc; cursor:grab;">☰</span>
+            <img src="${item.src}" class="thumb">
+            <div class="item-info">
+              <div class="file-name">${item.file.name}</div>
+              <div class="file-meta">${item.width} x ${item.height}</div>
+            </div>
+            <button class="remove-btn" onclick="removeImage('${item.id}')">✕</button>
+          `;
+          
+          // Drag Events
+          el.addEventListener('dragstart', handleDragStart);
+          el.addEventListener('dragover', handleDragOver);
+          el.addEventListener('drop', handleDrop);
+          el.addEventListener('dragend', handleDragEnd);
+          
+          imageList.appendChild(el);
+        });
+
+        if (state.images.length === 0) {
+           imageList.innerHTML = '<div style="padding:20px; text-align:center; color:#ccc; font-size:13px;">暂无图片</div>';
+        }
+      }
+
+      function removeImage(id) {
+        state.images = state.images.filter(img => img.id !== id);
+        renderList();
+      }
+
+      // --- Drag & Drop Sorting Logic ---
+      let draggedItem = null;
+
+      function handleDragStart(e) {
+        draggedItem = this;
+        this.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+      }
+
+      function handleDragOver(e) {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        return false;
+      }
+
+      function handleDrop(e) {
+        e.stopPropagation();
+        if (draggedItem !== this) {
+          // Reorder DOM
+          const allItems = [...imageList.querySelectorAll('.list-item')];
+          const draggedIdx = allItems.indexOf(draggedItem);
+          const droppedIdx = allItems.indexOf(this);
+          
+          // Reorder State
+          const itemToMove = state.images[draggedIdx];
+          state.images.splice(draggedIdx, 1);
+          state.images.splice(droppedIdx, 0, itemToMove);
+          
+          renderList();
+        }
+        return false;
+      }
+
+      function handleDragEnd() {
+        this.classList.remove('dragging');
+        draggedItem = null;
+      }
+
+      // --- Core Generation ---
+
+      function generateImage() {
+        if (state.images.length === 0) {
+          previewImg.style.display = 'none';
+          emptyMsg.style.display = 'block';
+          downloadBtn.disabled = true;
+          copyBtn.disabled = true;
+          return;
+        }
+
+        const isVert = state.direction === 'vertical';
+        const gap = parseInt(state.gap, 10);
+        
+        // 1. Calculate Canvas Dimensions
+        let totalW = 0;
+        let totalH = 0;
+
+        if (isVert) {
+          // Vertical: Width = max width, Height = sum height + gaps
+          totalW = Math.max(...state.images.map(i => i.width));
+          totalH = state.images.reduce((acc, curr) => acc + curr.height, 0) + (gap * (state.images.length - 1));
+        } else {
+          // Horizontal: Width = sum width + gaps, Height = max height
+          totalW = state.images.reduce((acc, curr) => acc + curr.width, 0) + (gap * (state.images.length - 1));
+          totalH = Math.max(...state.images.map(i => i.height));
+        }
+
+        // 2. Setup Canvas
+        const canvas = document.createElement('canvas');
+        canvas.width = totalW;
+        canvas.height = totalH;
+        const ctx = canvas.getContext('2d');
+
+        // Fill Background
+        ctx.fillStyle = state.bgColor;
+        ctx.fillRect(0, 0, totalW, totalH);
+
+        // 3. Draw Images
+        let offset = 0;
+        
+        state.images.forEach(imgData => {
+          const img = imgData.imgObj;
+          let x = 0;
+          let y = 0;
+
+          if (isVert) {
+            // Center horizontally
+            x = (totalW - imgData.width) / 2;
+            y = offset;
+            offset += imgData.height + gap;
+          } else {
+            // Center vertically
+            x = offset;
+            y = (totalH - imgData.height) / 2;
+            offset += imgData.width + gap;
+          }
+
+          ctx.drawImage(img, x, y);
+        });
+
+        // 4. Output
+        const dataUrl = canvas.toDataURL('image/png');
+        previewImg.src = dataUrl;
+        previewImg.style.display = 'block';
+        emptyMsg.style.display = 'none';
+        
+        downloadBtn.disabled = false;
+        copyBtn.disabled = false;
+        
+        downloadBtn.onclick = () => {
+          const a = document.createElement('a');
+          a.href = dataUrl;
+          a.download = `x-joiner-${Date.now()}.png`;
+          a.click();
+        };
+
+        copyBtn.onclick = async () => {
+          try {
+            const blob = await new Promise(r => canvas.toBlob(r));
+            await navigator.clipboard.write([new ClipboardItem({'image/png': blob})]);
+            const originalText = copyBtn.textContent;
+            copyBtn.textContent = '已复制!';
+            setTimeout(() => copyBtn.textContent = originalText, 1500);
+          } catch (e) {
+            alert('复制失败，请尝试下载');
+          }
+        };
+      }
+
+
+      // --- Event Listeners ---
+
+      // File Input
+      dropZone.addEventListener('click', () => fileInput.click());
+      fileInput.addEventListener('change', (e) => handleFiles(e.target.files));
+
+      // Drag enter/leave styles
+      dropZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropZone.classList.add('dragging');
+      });
+      dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragging'));
+      dropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropZone.classList.remove('dragging');
+        handleFiles(e.dataTransfer.files);
+      });
+
+      // Paste
+      document.addEventListener('paste', (e) => {
+        const items = e.clipboardData.items;
+        const files = [];
+        for (let i = 0; i < items.length; i++) {
+          if (items[i].type.indexOf('image') !== -1) {
+            files.push(items[i].getAsFile());
+          }
+        }
+        if (files.length > 0) handleFiles(files);
+      });
+      
+      pasteBtn.addEventListener('click', async () => {
+         try {
+           const items = await navigator.clipboard.read();
+           const files = [];
+           for (const item of items) {
+             const type = item.types.find(t => t.startsWith('image/'));
+             if (type) {
+               const blob = await item.getType(type);
+               files.push(new File([blob], "clipboard-image.png", { type }));
+             }
+           }
+           if (files.length) handleFiles(files);
+           else alert("剪贴板中没有图片");
+         } catch (e) {
+           alert("无法访问剪贴板，请尝试Ctrl+V");
+         }
+      });
+
+      // Controls
+      clearBtn.addEventListener('click', () => {
+        state.images = [];
+        renderList();
+        generateImage();
+      });
+
+      generateBtn.addEventListener('click', generateImage);
+
+      gapInput.addEventListener('input', (e) => {
+        state.gap = e.target.value;
+        gapVal.textContent = state.gap;
+        generateImage(); // Realtime update is nice
+      });
+
+      bgInput.addEventListener('input', (e) => {
+        state.bgColor = e.target.value;
+        generateImage();
+      });
+
+      dirInputs.forEach(input => {
+        input.addEventListener('change', (e) => {
+          state.direction = e.target.value;
+          generateImage();
+        });
+      });
+
+      // Init
+      renderList();
+
+    </script>
+  </body>
+</html>
